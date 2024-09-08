@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art NFT Creator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.ethers.io/lib/ethers-5.0.umd.min.js"></script>
+    <style>
+        #color-palette {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+        }
+        .color-box {
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+        }
+        #nft-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .nft-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .nft-image {
+            max-width: 200px;
+            max-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Art NFT Creator</h1>
+        
+        <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="create-tab" data-bs-toggle="tab" data-bs-target="#create" type="button" role="tab" aria-controls="create" aria-selected="true">Create NFT</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="gallery-tab" data-bs-toggle="tab" data-bs-target="#gallery" type="button" role="tab" aria-controls="gallery" aria-selected="false">My NFTs</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="create" role="tabpanel" aria-labelledby="create-tab">
+                <div id="color-palette"></div>
+                <canvas id="drawing-canvas" width="500" height="500" style="border:1px solid #000000;"></canvas>
+                <div class="mt-3">
+                    <button id="clear-btn" class="btn btn-secondary">Clear Canvas</button>
+                    <button id="mint-btn" class="btn btn-primary">Mint NFT</button>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="gallery" role="tabpanel" aria-labelledby="gallery-tab">
+                <button id="load-nfts-btn" class="btn btn-primary mb-3">Load My NFTs</button>
+                <div id="nft-gallery"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const colors = ['#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF', '#C0C0C0', '#808080'];
+        const canvas = document.getElementById('drawing-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let currentColor = '#000000';
+
+        // Set up color palette
+        const colorPalette = document.getElementById('color-palette');
+        colors.forEach(color => {
+            const colorBox = document.createElement('div');
+            colorBox.className = 'color-box';
+            colorBox.style.backgroundColor = color;
+            colorBox.addEventListener('click', () => currentColor = color);
+            colorPalette.appendChild(colorBox);
+        });
+
+        // Drawing functions
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = currentColor;
+
+            ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        // Clear canvas
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // Mint NFT
+        document.getElementById('mint-btn').addEventListener('click', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                
+                const contractAddress = "0x05D0AcA3ba12f010f6A26104da5cB83419723842";
+                const contractABI = [
+                    "function mintNFT(address recipient, string memory imageData) public returns (uint256)",
+                    "function tokenURI(uint256 tokenId) public view returns (string memory)"
+                ];
+                const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+                const imageData = canvas.toDataURL();
+                try {
+                    const tx = await contract.mintNFT(await signer.getAddress(), imageData);
+                    await tx.wait();
+                    alert("NFT minted successfully!");
+                } catch (error) {
+                    console.error("Error minting NFT:", error);
+                    alert("Error minting NFT. Check console for details.");
+                }
+            } else {
+                alert("Please install MetaMask to mint NFTs!");
+            }
+        });
+
+        // Load NFTs
+        document.getElementById('load-nfts-btn').addEventListener('click', async () => {
+            if (typeof window.ethereum !== 'undefined') {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                const signer = provider.getSigner();
+                
+                const contractAddress = "0x05D0AcA3ba12f010f6A26104da5cB83419723842";
+                const contractABI = [
+                    "function mintNFT(address recipient, string memory imageData) public returns (uint256)",
+                    "function tokenURI(uint256 tokenId) public view returns (string memory)",
+                    "function balanceOf(address owner) public view returns (uint256)",
+                    "function tokenOfOwnerByIndex(address owner, uint256 index) public view returns (uint256)"
+                ];
+                const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+                const address = await signer.getAddress();
+                const balance = await contract.balanceOf(address);
+                const gallery = document.getElementById('nft-gallery');
+                gallery.innerHTML = '';
+
+                for (let i = 0; i < balance; i++) {
+                    const tokenId = await contract.tokenOfOwnerByIndex(address, i);
+                    const tokenURIData = await contract.tokenURI(tokenId);
+                    const tokenMetadata = JSON.parse(atob(tokenURIData.split(',')[1]));
+
+                    const nftItem = document.createElement('div');
+                    nftItem.className = 'nft-item';
+                    nftItem.innerHTML = `
+                        <img src="${tokenMetadata.image}" alt="NFT ${tokenId}" class="nft-image">
+                        <p>Token ID: ${tokenId}</p>
+                    `;
+                    gallery.appendChild(nftItem);
+                }
+            } else {
+                alert("Please install MetaMask to view your NFTs!");
+            }
+        });
+    </script>
+</body>
+</html>
